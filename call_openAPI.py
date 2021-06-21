@@ -14,12 +14,14 @@ isGeneral={'네렉손서방정': 0,'레보트라정': 0,'리보테인정': 1,'�
 names=('네렉손서방정','레보트라정','리보테인정','바로소펜','베포탄정','벤즈날정', '비타포린정', '소론도정', '스틸녹스정', '쎄락틸정', '알레그라정180', '위싹정', '티지피파모티딘정', '페니라민정', '후라시닐정')
 
 #식별정보 조회
-def identify_pill():
-    for name in names:
-        print(name+" 질의 중..")
-        queryParams = '?' + urlencode({ quote_plus('ServiceKey') : '2NB3WWEHcsTp8oyE6BiUgMcdn9RQ1B+O/ekuQkiE1qrUGTeSl4KFqp+6akjWbGbm7rmhZe1Mt4zkLVRoT4jSyQ==', quote_plus('item_name') : name})
-        response=requests.get(identify_url+queryParams)
-        print(response.text)
+def identify_pill(name):
+    queryParams = '?' + urlencode({ quote_plus('ServiceKey') : '2NB3WWEHcsTp8oyE6BiUgMcdn9RQ1B+O/ekuQkiE1qrUGTeSl4KFqp+6akjWbGbm7rmhZe1Mt4zkLVRoT4jSyQ==', quote_plus('item_name') : name})
+    response=requests.get(identify_url+queryParams)
+    root_element=ElementTree.fromstring(response.text)
+    iter_element=root_element.iter(tag="item")
+    for element in iter_element:
+        imgURL=element.find('ITEM_IMAGE').text
+    return imgURL
 
 #일반의약품 정보조회
 def get_general_pillInfo(name):
@@ -192,7 +194,8 @@ def get_JSON(name):
     dateTaboo=get_dateTaboo(name)
     elderTaboo=get_elderTaboo(name)
     sbjTaboo=get_sbjTaboo(name)
-    res={**res1, **res2, **tabooInfo, **ageTaboo, **pwTaboo, **cpTaboo, **dateTaboo, **elderTaboo, **sbjTaboo}
+    imgURL=identify_pill(name)
+    res={**res1, **res2, **tabooInfo, **ageTaboo, **pwTaboo, **cpTaboo, **dateTaboo, **elderTaboo, **sbjTaboo, **imgURL}
     return json.dumps(res, indent=4, ensure_ascii=False)
 
 '''
