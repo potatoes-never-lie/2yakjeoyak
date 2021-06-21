@@ -10,6 +10,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from PIL import Image
 import cv2
 from call_openAPI import get_JSON
+import base64
 
 app=flask.Flask(__name__)
 model=None
@@ -51,11 +52,19 @@ def detect_text(input_image):			#Extract text data with OCR
 
 @app.route("/predict", methods=["POST"])
 def predict():
-	data={"success":False}
-
+	data={}
+	data["success"]=False
 	if flask.request.method=="POST":
-		if flask.request.files.get("image"):
-			image=flask.request.files["image"].read()
+		if flask.request.json['photo']:
+			image=Image.open(io.BytesIO(base64.b64decode(flask.request.json['photo'])))
+			image=prepare_image(image, target=(224,224))
+			preds=model.predict(image)
+			inferred_name=CLASSES[np.argmax(preds)]
+			data["content"]=get_JSON(inferred_name)
+			data["success"]=True
+		'''
+		if flask.request.files.get("photo"):
+			image=flask.request.files["photo"].read()
 			image=Image.open(io.BytesIO(image))
 			#inferred_text=detect_text(image)			#text로 하는건 일단 보류!!!!!
 			image=prepare_image(image, target=(224,224))
@@ -63,7 +72,7 @@ def predict():
 			inferred_name=CLASSES[np.argmax(preds)]
 			data["content"]=get_JSON(inferred_name)
 			data["success"]=True
-	
+		'''
 	return flask.jsonify(data)
 
 if __name__=="__main__":
@@ -71,7 +80,4 @@ if __name__=="__main__":
 	load_model()
 	app.run()
 
-	
-
-
-
+#(echo -n '{"photo": "'; base64 /Users/chaeyeon/Documents/2yakjeoyak/venv/IMG_3495.JPG; echo '"}') | curl -H "Content-Type: application/json" -d @-  http://afd35fd7429d.ngrok.io/predict
