@@ -15,13 +15,15 @@ names=('네렉손서방정','레보트라정','리보테인정','바로소펜','
 
 #식별정보 조회
 def identify_pill(name):
+    data={}
     queryParams = '?' + urlencode({ quote_plus('ServiceKey') : '2NB3WWEHcsTp8oyE6BiUgMcdn9RQ1B+O/ekuQkiE1qrUGTeSl4KFqp+6akjWbGbm7rmhZe1Mt4zkLVRoT4jSyQ==', quote_plus('item_name') : name})
     response=requests.get(identify_url+queryParams)
     root_element=ElementTree.fromstring(response.text)
     iter_element=root_element.iter(tag="item")
     for element in iter_element:
         imgURL=element.find('ITEM_IMAGE').text
-    return imgURL
+    data['이미지']=imgURL
+    return data
 
 #일반의약품 정보조회
 def get_general_pillInfo(name):
@@ -203,3 +205,5 @@ for i in names:
     print(i)
     print(get_JSON(i))
 '''
+
+print(get_JSON("위싹정"))
