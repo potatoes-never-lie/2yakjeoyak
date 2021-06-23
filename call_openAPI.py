@@ -13,7 +13,7 @@ DUR_url='http://apis.data.go.kr/1470000/DURPrdlstInfoService/'
 isGeneral={'네렉손서방정': 0,'레보트라정': 0,'리보테인정': 1,'바로소펜정':1,'베포탄정':0,'벤즈날정':1, '비타포린정':1, '소론도정':0, '스틸녹스정':0, '쎄락틸정':1, '알레그라정':0, '위싹정':1, '티지피파모티딘정':1, '페니라민정':1, '후라시닐정':0}
 names=('네렉손서방정','레보트라정','리보테인정','바로소펜','베포탄정','벤즈날정', '비타포린정', '소론도정', '스틸녹스정', '쎄락틸정', '알레그라정180', '위싹정', '티지피파모티딘정', '페니라민정', '후라시닐정')
 
-#식별정보 조회
+#이미지url 조회
 def identify_pill(name):
     data={}
     queryParams = '?' + urlencode({ quote_plus('ServiceKey') : '2NB3WWEHcsTp8oyE6BiUgMcdn9RQ1B+O/ekuQkiE1qrUGTeSl4KFqp+6akjWbGbm7rmhZe1Mt4zkLVRoT4jSyQ==', quote_plus('item_name') : name})
@@ -33,11 +33,16 @@ def get_general_pillInfo(name):
     l={'entpName': '업체명','itemName':'제품명','itemSeq':'품목기준코드','efcyQesitm':'효능', 'efcyQesitm':'효능','useMethodQesitm': '사용법','atpnWarnQesitm': '주의사항 경고','atpnQesitm': '주의사항','intrcQesitm': '상호작용','seQesitm': '부작용','depositMethodQesitm':'보관법'}
     queryParams = '?' + urlencode({ quote_plus('ServiceKey') : serviceKey, quote_plus('itemName') : name, quote_plus('type') : 'json' })
     response=requests.get(info_url+queryParams)
-    r=response.json()['body']['items'][0]
-    for i in l:
-        data[l[i]]=r[i]
+    #print(response.text)
+    try:
+        r=response.json()['body']['items'][0]
+        for i in l:
+            data[l[i]]=r[i]
+    except KeyError:            #허가기간 지난 약 검색했을 시에는 데이터 없이 리턴
+        return
     return data
-    #return json.dumps(data, indent=4, ensure_ascii=False)
+
+#print(get_general_pillInfo("가스부틴"))
 
 #전문의약품 정보조회
 def get_pro_fillInfo(name):
@@ -53,16 +58,17 @@ def get_pro_fillInfo(name):
 #기타 정보 조회
 def get_pillotherInfo(name):
     data={}
-    if name=='바로소펜정':
-        name='바로소펜'
-    if name=='알레그라정':
-        name='알레그라정180'
-    path='/Users/chaeyeon/Documents/2yakjeoyak/venv/info/other/'
-    filename=path+name+'.json'
-    with open(filename) as json_file:
-        data=json.load(json_file)
+    queryParams = '?' + urlencode({ quote_plus('ServiceKey') : serviceKey, quote_plus('item_name'): name})
+    response=requests.get('http://apis.data.go.kr/1471057/MdcinPrductPrmisnInfoService1/getMdcinPrductItem'+queryParams)
+    root_element=ElementTree.fromstring(response.text)
+    iter_element=root_element.iter(tag="item")
+    for element in iter_element:
+        data["전문일반구분"]=element.find('ETC_OTC_CODE').text
+        data["제품종류"]=element.find('CLASS_NO').text
+        data["성상"]=element.find('CHART').text
+        data["원료성분"]=element.find('MATERIAL_NAME').text
+        data["유효기간"]=element.find('VALID_TERM').text
     return data
-    #return json.dumps(data, indent=4, ensure_ascii=False)
 
 #병용금기 정보 조회
 def get_tabooInfo(name):
@@ -184,10 +190,15 @@ def get_JSON(name):
         name='알레그라정'
     if name=='바로소펜':
         name='바로소펜정'
-    if isGeneral[name]==1:     #일반의약품이면
+    if name not in isGeneral.keys():        #직접검색은 일반의약품만 가능
         res1=get_general_pillInfo(name)
-    else:   #전문의약품이면
-        res1=get_pro_fillInfo(name)
+        if res1==None:      #허가기간 지난 약이면
+            return
+    else:
+        if isGeneral[name]==0:     #전문의약품이면
+            res1=get_pro_fillInfo(name)
+        else:   #일반의약품이면
+            res1=get_general_pillInfo(name)
     res2=get_pillotherInfo(name)
     tabooInfo=get_tabooInfo(name)
     ageTaboo=get_ageTaboo(name)
@@ -199,11 +210,3 @@ def get_JSON(name):
     imgURL=identify_pill(name)
     res={**res1, **res2, **tabooInfo, **ageTaboo, **pwTaboo, **cpTaboo, **dateTaboo, **elderTaboo, **sbjTaboo, **imgURL}
     return json.dumps(res, indent=4, ensure_ascii=False)
-
-'''
-for i in names:
-    print(i)
-    print(get_JSON(i))
-'''
-
-print(get_JSON("위싹정"))

@@ -10,7 +10,9 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from PIL import Image
 import cv2
 from call_openAPI import get_JSON
+import dbconn
 import base64
+import json
 
 app=flask.Flask(__name__)
 model=None
@@ -34,23 +36,30 @@ def prepare_image(image, target):
 	image=preprocess_input(image)
 	return image
 	
-'''
-def detect_text(input_image):			#Extract text data with OCR
-	img_byte_array=io.BytesIO()
-	input_image.save(img_byte_array, format='JPEG')
-	img_byte_array=img_byte_array.getvalue()
-	image=vision.Image(content=img_byte_array)
-	response=client.text_detection(image=image)
-	texts=response.text_annotations
-	l=len(texts)
-	text_list=[]
-	if l!=0:
-		for i in range(1,l):
-			text_list.append(texts[i].description)
-	return text_list
-'''
+@app.route("/search", methods=["GET"])			#직접 검색 모듈(일반의약품만 가능)
+def search():
+	data={}
+	#arglist=("name","formulation","imprint_front","imprint_back","shape","color")
+	name="name!=\'0\'" if flask.request.args["name"]=='0' else "name like \'%%{}%%\'".format(flask.request.args["name"]) 
+	formulation="formulation!=\'0\'" if flask.request.args["formulation"]=='0' else "formulation=\'{}\'".format(flask.request.args["formulation"]) 
+	imprint_front="imprint_front!=\'0\'" if flask.request.args["imprint_front"]=='0' else "imprint_front like \'%%{}%%\'".format(flask.request.args["imprint_front"])
+	imprint_back="imprint_back!=\'0\'" if flask.request.args["imprint_back"]=='0' else "imprint_back like \'%%{}%%\'".format(flask.request.args["imprint_back"])
+	shape="shape!=\'0\'" if flask.request.args["shape"]=='0' else "shape=\'{}\'".format(flask.request.args["shape"])
+	color="color!=\'0\'" if flask.request.args["color"]=='0' else "color=\'{}\'".format(flask.request.args["color"])
+	sql="SELECT name FROM pilldb.id_pill where {} and {} and {} and {} and {} and {} and genorpro='일반의약품';".format(name, formulation, imprint_front, imprint_back, shape, color)
+	row=db_class.executeAll(sql)
+	data["success"]=True
+	data["content"]=[]		
+	for i in row:
+		print(i["name"])
+		c=get_JSON(i["name"])
+		data["content"].append(c) if c is not None else None
+	return flask.jsonify(data)
 
-@app.route("/predict", methods=["POST"])
+#전달 방식 예시: curl -G     --data-urlencode "name=후라시닐정"   --data-urlencode "formulation=0"  --data-urlencode "imprint_front=0" --data-urlencode "imprint_back=0" --data-urlencode "shape=0" --data-urlencode "color=하양"  http://127.0.0.1:5000/search
+
+
+@app.route("/predict", methods=["POST"])#사진으로 검색하면 추론해서 정보 돌려주는 모듈
 def predict():
 	data={}
 	data["success"]=False
@@ -77,7 +86,14 @@ def predict():
 
 if __name__=="__main__":
 	print("* Loading keras model and Flask starting server..Please wait until server has fully started..")
+	db_class=dbconn.Database()
 	load_model()
 	app.run()
 
 #(echo -n '{"photo": "'; base64 /Users/chaeyeon/Documents/2yakjeoyak/venv/IMG_3495.JPG; echo '"}') | curl -H "Content-Type: application/json" -d @-  http://afd35fd7429d.ngrok.io/predict
+'''
+curl -G \
+    --data-urlencode "name='위싹정'" \
+    --data-urlencode "shape='장방형'" \
+    http://127.0.0.1:5000/search
+'''
